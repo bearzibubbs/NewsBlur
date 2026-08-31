@@ -100,15 +100,19 @@ DATABASES = {
     },
 }
 
-# Mongo auth: mongoengine.connect() (called in settings.py) forwards every key in this
-# dict as a kwarg to pymongo's MongoClient, so username/password/authentication_source
-# here just work -- no settings.py change needed for the primary connection.
+# Mongo auth: settings.py's primary connection does
+# `MONGODB = connect(MONGO_DB_NAME, **MONGO_DB)` with username/password/
+# authentication_source as SEPARATE kwargs -- empirically confirmed (this deploy,
+# mongoengine 0.21.0 + pymongo 3.13.0) that combination silently produces an
+# UNAUTHENTICATED client (ping succeeds, any real op 'requires authentication',
+# no auth attempt even hits the mongod logs). Embedding credentials in the host as
+# a mongodb:// URI instead works -- this is the same pattern settings.py's own
+# MONGO_ANALYTICS_DB branch already uses when "username" is present, so this just
+# brings the primary connection in line with the code path that's proven to work.
 MONGO_DB = {
     "name": "newsblur",
-    "host": "newsblur-mongo:29019",
-    "username": os.getenv("MONGO_USERNAME", "newsblur"),
-    "password": os.getenv("MONGO_PASSWORD", ""),
-    "authentication_source": "admin",
+    "host": "mongodb://%s:%s@newsblur-mongo:29019/?authSource=admin"
+    % (os.getenv("MONGO_USERNAME", "newsblur"), os.getenv("MONGO_PASSWORD", "")),
 }
 MONGO_ANALYTICS_DB = {
     "name": "nbanalytics",
