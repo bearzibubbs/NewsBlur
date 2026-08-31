@@ -1,0 +1,14 @@
+# Dockerfile.k8s — self-contained NewsBlur app image (source baked in; no runtime bind-mount).
+# Serves newsblur_web (gunicorn) AND task_celery (same image, different command).
+# Mirrors docker/newsblur_deploy.Dockerfile + COPY . to make it Kubernetes-native.
+FROM newsblur/newsblur_python3
+ENV DOCKERBUILD=True PYTHONPATH=/srv/newsblur
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends curl nodejs npm \
+ && npm install -g terser \
+ && uv pip install lightningcss \
+ && apt-get clean && rm -rf /var/lib/apt/lists/*
+WORKDIR /srv/newsblur
+COPY . /srv/newsblur
+# Bake static assets; non-fatal if settings need runtime env (worker can move to an init step).
+RUN python manage.py collectstatic --no-input --clear -v 0 || echo "collectstatic deferred to runtime"
