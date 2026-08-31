@@ -978,13 +978,19 @@ else:
     REDIS_SESSION_PORT = 6382
     REDIS_PUBSUB_PORT = 6383
 
+# Redis auth (this cluster runs Redis with --requirepass; upstream ships with no
+# auth at all since it assumes localhost-only). Wired into CELERY_BROKER_URL,
+# CACHES, SESSION_REDIS, and every redis.ConnectionPool(...) below.
+REDIS_PASSWORD = os.getenv("REDIS_PASSWORD") or None
+
 if REDIS_USER is None:
     # REDIS has been renamed to REDIS_USER.
     REDIS_USER = REDIS
 
 CELERY_REDIS_DB_NUM = 4
 SESSION_REDIS_DB = 5
-CELERY_BROKER_URL = "redis://%s:%s/%s" % (
+CELERY_BROKER_URL = "redis://%s%s:%s/%s" % (
+    (":%s@" % REDIS_PASSWORD) if REDIS_PASSWORD else "",
     REDIS_USER["host"],
     REDIS_USER_PORT,
     CELERY_REDIS_DB_NUM,
@@ -1007,7 +1013,7 @@ SESSION_REDIS = {
     "host": REDIS_SESSIONS["host"],
     "port": REDIS_SESSION_PORT,
     "db": SESSION_REDIS_DB,
-    # 'password': 'password',
+    "password": REDIS_PASSWORD,
     "prefix": "",
     "socket_timeout": 10,
     "retry_on_timeout": True,
@@ -1016,26 +1022,30 @@ SESSION_REDIS = {
 CACHES = {
     "default": {
         "BACKEND": "django_redis.cache.RedisCache",
-        "LOCATION": "redis://%s:%s/6" % (REDIS_USER["host"], REDIS_USER_PORT),
+        "LOCATION": "redis://%s%s:%s/6" % (
+            (":%s@" % REDIS_PASSWORD) if REDIS_PASSWORD else "",
+            REDIS_USER["host"],
+            REDIS_USER_PORT,
+        ),
     },
 }
 
-REDIS_POOL = redis.ConnectionPool(host=REDIS_USER["host"], port=REDIS_USER_PORT, db=0, decode_responses=True)
+REDIS_POOL = redis.ConnectionPool(host=REDIS_USER["host"], port=REDIS_USER_PORT, db=0, decode_responses=True, password=REDIS_PASSWORD)
 REDIS_ANALYTICS_POOL = redis.ConnectionPool(
-    host=REDIS_USER["host"], port=REDIS_USER_PORT, db=2, decode_responses=True
+    host=REDIS_USER["host"], port=REDIS_USER_PORT, db=2, decode_responses=True, password=REDIS_PASSWORD
 )
 REDIS_STATISTICS_POOL = redis.ConnectionPool(
-    host=REDIS_USER["host"], port=REDIS_USER_PORT, db=3, decode_responses=True
+    host=REDIS_USER["host"], port=REDIS_USER_PORT, db=3, decode_responses=True, password=REDIS_PASSWORD
 )
 REDIS_FEED_UPDATE_POOL = redis.ConnectionPool(
-    host=REDIS_USER["host"], port=REDIS_USER_PORT, db=4, decode_responses=True
+    host=REDIS_USER["host"], port=REDIS_USER_PORT, db=4, decode_responses=True, password=REDIS_PASSWORD
 )
 REDIS_STORY_HASH_TEMP_POOL = redis.ConnectionPool(
-    host=REDIS_USER["host"], port=REDIS_USER_PORT, db=10, decode_responses=True
+    host=REDIS_USER["host"], port=REDIS_USER_PORT, db=10, decode_responses=True, password=REDIS_PASSWORD
 )
 # REDIS_CACHE_POOL         = redis.ConnectionPool(host=REDIS_USER['host'], port=REDIS_USER_PORT, db=6) # Duped in CACHES
 REDIS_STORY_HASH_POOL = redis.ConnectionPool(
-    host=REDIS_STORY["host"], port=REDIS_STORY_PORT, db=1, decode_responses=True
+    host=REDIS_STORY["host"], port=REDIS_STORY_PORT, db=1, decode_responses=True, password=REDIS_PASSWORD
 )
 # Replica pool for read-heavy background tasks (clustering). Falls back to primary if no secondary configured.
 if REDIS_STORY_SECONDARY:
@@ -1043,21 +1053,21 @@ if REDIS_STORY_SECONDARY:
         host=REDIS_STORY_SECONDARY["host"],
         port=REDIS_STORY_SECONDARY.get("port", REDIS_STORY_PORT),
         db=1,
-        decode_responses=True,
+        decode_responses=True, password=REDIS_PASSWORD,
     )
 else:
     REDIS_STORY_HASH_REPLICA_POOL = REDIS_STORY_HASH_POOL
 REDIS_FEED_READ_POOL = redis.ConnectionPool(
-    host=REDIS_SESSIONS["host"], port=REDIS_SESSION_PORT, db=1, decode_responses=True
+    host=REDIS_SESSIONS["host"], port=REDIS_SESSION_PORT, db=1, decode_responses=True, password=REDIS_PASSWORD
 )
 REDIS_FEED_SUB_POOL = redis.ConnectionPool(
-    host=REDIS_SESSIONS["host"], port=REDIS_SESSION_PORT, db=2, decode_responses=True
+    host=REDIS_SESSIONS["host"], port=REDIS_SESSION_PORT, db=2, decode_responses=True, password=REDIS_PASSWORD
 )
 REDIS_SESSION_POOL = redis.ConnectionPool(
-    host=REDIS_SESSIONS["host"], port=REDIS_SESSION_PORT, db=5, decode_responses=True
+    host=REDIS_SESSIONS["host"], port=REDIS_SESSION_PORT, db=5, decode_responses=True, password=REDIS_PASSWORD
 )
 REDIS_PUBSUB_POOL = redis.ConnectionPool(
-    host=REDIS_PUBSUB["host"], port=REDIS_PUBSUB_PORT, db=0, decode_responses=True
+    host=REDIS_PUBSUB["host"], port=REDIS_PUBSUB_PORT, db=0, decode_responses=True, password=REDIS_PASSWORD
 )
 
 # ==================
