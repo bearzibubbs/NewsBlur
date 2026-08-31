@@ -12,3 +12,11 @@ WORKDIR /srv/newsblur
 COPY . /srv/newsblur
 # Bake static assets; non-fatal if settings need runtime env (worker can move to an init step).
 RUN python manage.py collectstatic --no-input --clear -v 0 || echo "collectstatic deferred to runtime"
+# Non-root runtime (OpenShift nonroot-v2 SCC, explicit uid like the rest of the cluster's
+# from-source builds): gunicorn writes logs/ + .prom_cache/ under /srv/newsblur at boot,
+# so the whole tree needs to be owned by the runtime uid, not just those two dirs.
+RUN groupadd -g 1000 newsblur \
+ && useradd -u 1000 -g 1000 -M -d /srv/newsblur newsblur \
+ && mkdir -p /srv/newsblur/logs /srv/newsblur/.prom_cache \
+ && chown -R 1000:1000 /srv/newsblur
+USER 1000
