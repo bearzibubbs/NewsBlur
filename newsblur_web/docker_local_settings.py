@@ -18,32 +18,23 @@ SESSION_COOKIE_DOMAIN = "localhost"
 # ===================
 
 DOCKERBUILD = True
-DEBUG = False
 DEBUG = True
 
 # DEBUG_ASSETS controls JS/CSS asset packaging. Turning this off requires you to run
-# `./manage.py collectstatic` first. Turn this on for development so you can see
-# changes in your JS/CSS.
-DEBUG_ASSETS = False  # Make sure to run `./manage.py collectstatic` first
-DEBUG_ASSETS = True
+# `./manage.py collectstatic` first (done at image build time here).
+DEBUG_ASSETS = False
 
-# DEBUG_QUERIES controls the output of the database query logs. Can be rather verbose
-# but is useful to catch slow running queries. A summary is also useful in cutting
-# down verbosity.
+# DEBUG_QUERIES controls the output of the database query logs.
 DEBUG_QUERIES = DEBUG
-DEBUG_QUERIES_SUMMARY_ONLY = True
 DEBUG_QUERIES_SUMMARY_ONLY = False
 
 MEDIA_URL = "/media/"
 IMAGES_URL = "/imageproxy"
-# Uncomment below to debug iOS/Android widget
-# IMAGES_URL = 'https://haproxy/imageproxy'
-SECRET_KEY = "YOUR SECRET KEY"
+SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "")
 AUTO_PREMIUM_NEW_USERS = True
 AUTO_PREMIUM_ARCHIVE_NEW_USERS = True
 AUTO_PREMIUM_PRO_NEW_USERS = True
 AUTO_PREMIUM = True
-# AUTO_PREMIUM = False
 if not AUTO_PREMIUM:
     AUTO_PREMIUM_NEW_USERS = False
     AUTO_PREMIUM_ARCHIVE_NEW_USERS = False
@@ -54,22 +45,23 @@ ENABLE_PUSH = False
 
 PRO_MINUTES_BETWEEN_FETCHES = 15
 
+# NOTE: this CACHES dict is unconditionally overwritten later by
+# newsblur_web/settings.py (~L1016), which builds the LOCATION from
+# REDIS_USER/REDIS_USER_PORT + REDIS_PASSWORD -- kept here only so this file stays a
+# faithful/complete settings module on its own.
 CACHES = {
     "default": {
         "BACKEND": "django_redis.cache.RedisCache",
-        "LOCATION": "redis://newsblur_db_redis:6579/6",
+        "LOCATION": "redis://newsblur-redis:6579/6",
     },
 }
 
 EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
 
-# Set this to the username that is shown on the homepage to unauthenticated users.
 HOMEPAGE_USERNAME = "popular"
-
-# Default username for dev autologin (only works when DEBUG=True)
 DEV_AUTOLOGIN_USERNAME = "samuel"
 
-# Google Reader OAuth API Keys
+# Google Reader OAuth API Keys (unused; no external OAuth configured for this deploy)
 OAUTH_KEY = "www.example.com"
 OAUTH_SECRET = "SECRET_KEY_FROM_GOOGLE"
 
@@ -99,67 +91,77 @@ YOUTUBE_API_KEY = "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
 
 DATABASES = {
     "default": {
-        "NAME": "newsblur",
+        "NAME": os.getenv("POSTGRES_DB", "newsblur"),
         "ENGINE": "django_prometheus.db.backends.postgresql",
-        #'ENGINE': 'django.db.backends.mysql',
-        "USER": "newsblur",
-        "PASSWORD": "newsblur",
-        "HOST": "newsblur_db_postgres",
+        "USER": os.getenv("POSTGRES_USER", "newsblur"),
+        "PASSWORD": os.getenv("POSTGRES_PASSWORD", ""),
+        "HOST": "newsblur-postgres",
         "PORT": 5432,
     },
 }
 
-MONGO_DB = {"name": "newsblur", "host": "newsblur_db_mongo:29019"}
+# Mongo auth: mongoengine.connect() (called in settings.py) forwards every key in this
+# dict as a kwarg to pymongo's MongoClient, so username/password/authentication_source
+# here just work -- no settings.py change needed for the primary connection.
+MONGO_DB = {
+    "name": "newsblur",
+    "host": "newsblur-mongo:29019",
+    "username": os.getenv("MONGO_USERNAME", "newsblur"),
+    "password": os.getenv("MONGO_PASSWORD", ""),
+    "authentication_source": "admin",
+}
 MONGO_ANALYTICS_DB = {
     "name": "nbanalytics",
-    "host": "newsblur_db_mongo:29019",
+    "host": "newsblur-mongo:29019",
+    "username": os.getenv("MONGO_USERNAME", "newsblur"),
+    "password": os.getenv("MONGO_PASSWORD", ""),
 }
 
-MONGODB_SLAVE = {"host": "newsblur_db_mongo"}
+MONGODB_SLAVE = {"host": "newsblur-mongo"}
 
 # Celery RabbitMQ/Redis Broker
-BROKER_URL = "redis://newsblur_db_redis:6579/0"
+# NOTE: CELERY_BROKER_URL here is unconditionally overwritten by settings.py (~L987)
+# using REDIS_PASSWORD -- kept for completeness.
+BROKER_URL = "redis://newsblur-redis:6579/0"
 CELERY_RESULT_BACKEND = BROKER_URL
 CELERY_WORKER_CONCURRENCY = 1
 
-REDIS_USER = {"host": "newsblur_db_redis", "port": 6579}
-REDIS_PUBSUB = {"host": "newsblur_db_redis", "port": 6579}
-REDIS_STORY = {"host": "newsblur_db_redis", "port": 6579}
-REDIS_SESSIONS = {"host": "newsblur_db_redis", "port": 6579}
+# host/port only reach settings.py's redis.ConnectionPool(...) calls -- REDIS_PASSWORD
+# (settings.py, from the REDIS_PASSWORD env var) is what actually authenticates them.
+REDIS_USER = {"host": "newsblur-redis", "port": 6579}
+REDIS_PUBSUB = {"host": "newsblur-redis", "port": 6579}
+REDIS_STORY = {"host": "newsblur-redis", "port": 6579}
+REDIS_SESSIONS = {"host": "newsblur-redis", "port": 6579}
 
 CELERY_REDIS_DB_NUM = 4
 SESSION_REDIS_DB = 5
 
-ELASTICSEARCH_FEED_HOSTS = ["newsblur_db_elasticsearch:9200"]
-ELASTICSEARCH_STORY_HOSTS = ["newsblur_db_elasticsearch:9200"]
-ELASTICSEARCH_DISCOVER_HOSTS = ["newsblur_db_elasticsearch:9200"]
+ELASTICSEARCH_FEED_HOSTS = ["newsblur-elasticsearch:9200"]
+ELASTICSEARCH_STORY_HOSTS = ["newsblur-elasticsearch:9200"]
+ELASTICSEARCH_DISCOVER_HOSTS = ["newsblur-elasticsearch:9200"]
 
-ELASTICSEARCH_FEED_HOST = "http://newsblur_db_elasticsearch:9200"
-ELASTICSEARCH_STORY_HOST = "http://newsblur_db_elasticsearch:9200"
-ELASTICSEARCH_DISCOVER_HOST = "http://newsblur_db_elasticsearch:9200"
+ELASTICSEARCH_FEED_HOST = "http://newsblur-elasticsearch:9200"
+ELASTICSEARCH_STORY_HOST = "http://newsblur-elasticsearch:9200"
+ELASTICSEARCH_DISCOVER_HOST = "http://newsblur-elasticsearch:9200"
 BACKED_BY_AWS = {
     "pages_on_node": False,
     "pages_on_s3": False,
     "icons_on_s3": False,
 }
 
-# AI Provider API Keys
-# Replace placeholders with real keys to enable AI features.
-# AI classifiers (content + image filters) work automatically when
-# a real Anthropic key is configured -- no billing setup needed.
+# AI Provider API Keys -- optional, not configured for this deploy.
 OPENAI_API_KEY = "sk-svcacct-XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
 ANTHROPIC_API_KEY = "sk-ant-XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
 GOOGLE_GEMINI_API_KEY = "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
 XAI_GROK_API_KEY = "xai-XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
-ASK_AI_MODEL = "anthropic"  # Options: anthropic, openai, google, xai
-BRIEFING_MODEL = "openai"  # Options: anthropic, openai, google, xai
-WEBFEED_MODEL = "openai"  # Options: anthropic, openai, google, xai
+ASK_AI_MODEL = "anthropic"
+BRIEFING_MODEL = "openai"
+WEBFEED_MODEL = "openai"
 
 # ===========
 # = Logging =
 # ===========
 
-# Logging (setup for development)
 LOG_TO_STREAM = True
 
 if len(logging._handlerList) < 1:
@@ -185,11 +187,9 @@ if NEWSBLUR_URL == "https://localhost":
 
 SESSION_ENGINE = "redis_sessions.session"
 
-# CORS_ORIGIN_REGEX_WHITELIST = ('^(https?://)?(\w+\.)?nb.local\.com$', )
-
 RECAPTCHA_SECRET_KEY = "0000000000000000000000000000000000000000"
 IMAGES_SECRET_KEY = "0000000000000000000000000000000"
 
-# APNS settings for token-based authentication
-APNS_TEAM_ID = "XXXXXXXXXX"  # Apple Developer Team ID (10 characters)
-APNS_KEY_ID = "XXXXXXXXXX"  # APNS Key ID (10 characters)
+# APNS settings for token-based authentication -- unused.
+APNS_TEAM_ID = "XXXXXXXXXX"
+APNS_KEY_ID = "XXXXXXXXXX"
