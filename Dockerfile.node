@@ -1,0 +1,8 @@
+# Dockerfile.node — newsblur_node self-contained image. Upstream's newsblur/newsblur_node
+# base only npm-installs into /node; the app source (node/*.js) is bind-mounted at
+# runtime in docker-compose. This bakes it in for Kubernetes.
+FROM newsblur/newsblur_node
+WORKDIR /srv
+COPY node/ /srv
+USER 1000
+CMD ["node", "newsblur.js"]
