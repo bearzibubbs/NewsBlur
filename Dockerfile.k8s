@@ -1,7 +1,7 @@
 # Dockerfile.k8s — self-contained NewsBlur app image (source baked in; no runtime bind-mount).
 # Serves newsblur_web (gunicorn) AND task_celery (same image, different command).
 # Mirrors docker/newsblur_deploy.Dockerfile + COPY . to make it Kubernetes-native.
-FROM newsblur/newsblur_python3
+FROM docker.io/newsblur/newsblur_python3
 ENV DOCKERBUILD=True PYTHONPATH=/srv/newsblur
 RUN apt-get update \
  && apt-get install -y --no-install-recommends curl nodejs npm \
