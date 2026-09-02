@@ -180,7 +180,18 @@ RIVER_SLOWDOWN_USERS = []
 
 def get_subdomain(request):
     host = request.META.get("HTTP_HOST")
-    if host and host.count(".") >= 2:
+    if not host:
+        return None
+    # Self-hosted deployments often serve NewsBlur from a host with 3+ labels
+    # (e.g. newsblur.apps.example.com) that isn't a *.newsblur.com subdomain at
+    # all -- the naive "2+ dots => subdomain" heuristic below would otherwise
+    # treat the deployment's own primary host as an unrecognized subdomain and
+    # redirect-loop to itself. Skip subdomain handling when the request host is
+    # exactly the configured primary host.
+    configured_host = urllib.parse.urlparse(settings.NEWSBLUR_URL).hostname
+    if configured_host and host.split(":")[0] == configured_host:
+        return None
+    if host.count(".") >= 2:
         return host.split(".")[0]
     else:
         return None
